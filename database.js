@@ -1,4 +1,10 @@
-import { Databases, ID, Query } from "node-appwrite";
+import {
+  Databases,
+  ID,
+  Query,
+  RelationMutate,
+  RelationshipType,
+} from "node-appwrite";
 import client from "./setup.js";
 
 // Initialize the Databases service
@@ -15,6 +21,10 @@ export async function createUsersCollection(databaseId) {
     const collections = await databases.listCollections(databaseId);
     const usersCollection = collections.collections.find(
       (collection) => collection.name === "users"
+    );
+
+    const postsCollection = collections.collections.find(
+      (collection) => collection.name === "posts"
     );
 
     if (usersCollection) {
@@ -106,6 +116,21 @@ export async function createUsersCollection(databaseId) {
 
     // Wait a bit for the attributes to be created
     await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Add relationship attribute (this will need a posts collection to be created separately)
+    // Adding after initial attribute creation to avoid potential race conditions
+    await databases.createRelationshipAttribute(
+      databaseId,
+      collection.$id,
+      postsCollection.$id, // the related collection ID or name where posts would be stored
+      RelationshipType.ManyToOne, // type of relationship - user can have many posts
+      true, // Two-way relationship
+      "creator",
+      "posts",
+      RelationMutate.Cascade // what happens when the related document is deleted
+    );
+
+    console.log("Created relationship attribute for users collection");
 
     // Create indexes for faster queries
     await Promise.all([
