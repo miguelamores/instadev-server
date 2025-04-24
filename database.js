@@ -286,15 +286,105 @@ export async function createPostsCollection(databaseId) {
 }
 
 /**
+ * Creates the saves collection with relationships to users and posts
+ * @param {string} databaseId - The database ID where the collection will be created
+ * @returns {Promise} - The created collection
+ */
+export async function createSavesCollection(databaseId) {
+  try {
+    // First, check if the collection already exists to avoid duplicates
+    const collections = await databases.listCollections(databaseId);
+    const savesCollection = collections.collections.find(
+      (collection) => collection.name === "saves"
+    );
+
+    const usersCollection = collections.collections.find(
+      (collection) => collection.name === "users"
+    );
+
+    const postsCollection = collections.collections.find(
+      (collection) => collection.name === "posts"
+    );
+
+    if (savesCollection) {
+      console.log("Saves collection already exists");
+      return savesCollection;
+    }
+
+    // Create the saves collection
+    const collection = await databases.createCollection(
+      databaseId,
+      ID.unique(),
+      "saves",
+      [
+        // You can add permissions here if needed
+        // Example: 'read("any")', 'write("team:developers")'
+      ]
+    );
+
+    console.log("Created saves collection:", collection.$id);
+
+    // Wait a bit for the collection to be created
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Add relationship attribute - link to users
+    await databases.createRelationshipAttribute(
+      databaseId,
+      collection.$id,
+      usersCollection.$id,
+      RelationshipType.ManyToOne, // Many saves can belong to one user
+      true, // Two-way relationship
+      "user",
+      "save", // User's saved posts
+      RelationMutate.SetNull // Delete saves when user is deleted
+    );
+
+    console.log("Created user relationship attribute for saves collection");
+
+    // Wait a bit for the first relationship to be created
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Add relationship attribute - link to posts
+    await databases.createRelationshipAttribute(
+      databaseId,
+      collection.$id,
+      postsCollection.$id,
+      RelationshipType.ManyToOne, // Many saves can reference one post
+      true, // Two-way relationship
+      "post",
+      "save", // Users who saved this post
+      RelationMutate.SetNull // Delete saves when post is deleted
+    );
+
+    console.log("Created post relationship attribute for saves collection");
+
+    // Create a composite index on user and post for faster lookups and uniqueness
+    await databases.createIndex(
+      databaseId,
+      collection.$id,
+      "user_post_index",
+      "key",
+      ["user", "post"]
+    );
+
+    console.log("Created index for saves collection");
+    return collection;
+  } catch (error) {
+    console.error("Error creating saves collection:", error);
+    throw error;
+  }
+}
+
+/**
  * Initialize the database by creating all necessary collections
  * @param {string} databaseId - The database ID to use
  */
 export async function initializeDatabase(databaseId) {
   try {
     await createUsersCollection(databaseId);
+    await createPostsCollection(databaseId);
+    await createSavesCollection(databaseId);
     console.log("Database initialized successfully");
-    // Then create posts collection with relationship to users
-    const postsCollection = await createPostsCollection(databaseId);
   } catch (error) {
     console.error("Failed to initialize database:", error);
     throw error;
