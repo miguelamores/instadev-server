@@ -335,7 +335,7 @@ export async function createSavesCollection(databaseId) {
       RelationshipType.ManyToOne, // Many saves can belong to one user
       true, // Two-way relationship
       "user",
-      "save", // User's saved posts
+      "saves", // User's saved posts
       RelationMutate.SetNull // Delete saves when user is deleted
     );
 
@@ -352,7 +352,7 @@ export async function createSavesCollection(databaseId) {
       RelationshipType.ManyToOne, // Many saves can reference one post
       true, // Two-way relationship
       "post",
-      "save", // Users who saved this post
+      "savedBy", // Users who saved this post
       RelationMutate.SetNull // Delete saves when post is deleted
     );
 
