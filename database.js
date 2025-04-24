@@ -376,6 +376,96 @@ export async function createSavesCollection(databaseId) {
 }
 
 /**
+ * Creates the likes collection with relationships to users and posts
+ * @param {string} databaseId - The database ID where the collection will be created
+ * @returns {Promise} - The created collection
+ */
+export async function createLikesCollection(databaseId) {
+  try {
+    // First, check if the collection already exists to avoid duplicates
+    const collections = await databases.listCollections(databaseId);
+    const likesCollection = collections.collections.find(
+      (collection) => collection.name === "likes"
+    );
+
+    const usersCollection = collections.collections.find(
+      (collection) => collection.name === "users"
+    );
+
+    const postsCollection = collections.collections.find(
+      (collection) => collection.name === "posts"
+    );
+
+    if (likesCollection) {
+      console.log("Likes collection already exists");
+      return likesCollection;
+    }
+
+    // Create the likes collection
+    const collection = await databases.createCollection(
+      databaseId,
+      ID.unique(),
+      "likes",
+      [
+        // You can add permissions here if needed
+        // Example: 'read("any")', 'write("team:developers")'
+      ]
+    );
+
+    console.log("Created likes collection:", collection.$id);
+
+    // Wait a bit for the collection to be created
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Add relationship attribute - link to users
+    await databases.createRelationshipAttribute(
+      databaseId,
+      collection.$id,
+      usersCollection.$id,
+      RelationshipType.ManyToOne, // Many likes can belong to one user
+      true, // Two-way relationship
+      "user",
+      "likes", // User's likes
+      RelationMutate.SetNull // Delete likes when user is deleted
+    );
+
+    console.log("Created user relationship attribute for likes collection");
+
+    // Wait a bit for the first relationship to be created
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    // Add relationship attribute - link to posts
+    await databases.createRelationshipAttribute(
+      databaseId,
+      collection.$id,
+      postsCollection.$id,
+      RelationshipType.ManyToOne, // Many likes can reference one post
+      true, // Two-way relationship
+      "post",
+      "likedBy", // Users who liked this post
+      RelationMutate.SetNull // Delete likes when post is deleted
+    );
+
+    console.log("Created post relationship attribute for likes collection");
+
+    // Create a composite index on user and post for faster lookups and uniqueness
+    await databases.createIndex(
+      databaseId,
+      collection.$id,
+      "user_post_index",
+      "key",
+      ["user", "post"]
+    );
+
+    console.log("Created index for likes collection");
+    return collection;
+  } catch (error) {
+    console.error("Error creating likes collection:", error);
+    throw error;
+  }
+}
+
+/**
  * Initialize the database by creating all necessary collections
  * @param {string} databaseId - The database ID to use
  */
@@ -384,6 +474,7 @@ export async function initializeDatabase(databaseId) {
     await createUsersCollection(databaseId);
     await createPostsCollection(databaseId);
     await createSavesCollection(databaseId);
+    await createLikesCollection(databaseId);
     console.log("Database initialized successfully");
   } catch (error) {
     console.error("Failed to initialize database:", error);
