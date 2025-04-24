@@ -127,7 +127,7 @@ export async function createUsersCollection(databaseId) {
       true, // Two-way relationship
       "creator",
       "posts",
-      RelationMutate.Cascade // what happens when the related document is deleted
+      RelationMutate.SetNull // what happens when the related document is deleted
     );
 
     console.log("Created relationship attribute for users collection");
@@ -167,6 +167,125 @@ export async function createUsersCollection(databaseId) {
 }
 
 /**
+ * Creates the posts collection with the specified attributes
+ * @param {string} databaseId - The database ID where the collection will be created
+ * @returns {Promise} - The created collection
+ */
+export async function createPostsCollection(databaseId) {
+  try {
+    // First, check if the collection already exists to avoid duplicates
+    const collections = await databases.listCollections(databaseId);
+    const postsCollection = collections.collections.find(
+      (collection) => collection.name === "posts"
+    );
+
+    const usersCollection = collections.collections.find(
+      (collection) => collection.name === "users"
+    );
+
+    if (postsCollection) {
+      console.log("Posts collection already exists");
+      return postsCollection;
+    }
+
+    // Create the posts collection
+    const collection = await databases.createCollection(
+      databaseId,
+      ID.unique(),
+      "posts",
+      [
+        // You can add permissions here if needed
+        // Example: 'read("any")', 'write("team:developers")'
+      ]
+    );
+
+    console.log("Created posts collection:", collection.$id);
+
+    // Create attributes for the collection
+    await Promise.all([
+      // content attribute
+      databases.createStringAttribute(
+        databaseId,
+        collection.$id,
+        "content",
+        2048, // max length
+        true // required
+      ),
+
+      // tags attribute - for array of strings
+      databases.createStringAttribute(
+        databaseId,
+        collection.$id,
+        "tags",
+        255, // max length per tag
+        false, // not required
+        null, // default value
+        true // is array
+      ),
+
+      // imageUrl attribute
+      databases.createStringAttribute(
+        databaseId,
+        collection.$id,
+        "imageUrl",
+        1024, // max length
+        true // required
+      ),
+
+      // imageId attribute
+      databases.createStringAttribute(
+        databaseId,
+        collection.$id,
+        "imageId",
+        255, // max length
+        true // required
+      ),
+
+      // location attribute
+      databases.createStringAttribute(
+        databaseId,
+        collection.$id,
+        "location",
+        255, // max length
+        false, // not required
+        null // default value
+      ),
+    ]);
+
+    // Wait a bit for the attributes to be created
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Add relationship attribute (linking posts to users)
+    await databases.createRelationshipAttribute(
+      databaseId,
+      collection.$id,
+      usersCollection.$id, // the related collection ID or name where users are stored
+      RelationshipType.ManyToOne, // type of relationship - many posts can belong to one user
+      true, // Two-way relationship
+      "user",
+      "posts",
+      RelationMutate.SetNull // delete posts when user is deleted
+    );
+
+    console.log("Created relationship attribute for posts collection");
+
+    // Create indexes for faster queries
+    await Promise.all([
+      // Index on tags for quick lookups
+      databases.createIndex(databaseId, collection.$id, "tags_index", "key", [
+        "tags",
+      ]),
+    ]);
+
+    console.log("Created all attributes and indexes for posts collection");
+    return collection;
+  } catch (error) {
+    console.error("Error creating posts collection:", error);
+    throw error;
+  }
+}
+
+/**
  * Initialize the database by creating all necessary collections
  * @param {string} databaseId - The database ID to use
  */
@@ -174,6 +293,8 @@ export async function initializeDatabase(databaseId) {
   try {
     await createUsersCollection(databaseId);
     console.log("Database initialized successfully");
+    // Then create posts collection with relationship to users
+    const postsCollection = await createPostsCollection(databaseId);
   } catch (error) {
     console.error("Failed to initialize database:", error);
     throw error;
