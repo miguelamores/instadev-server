@@ -6,7 +6,7 @@ import {
   RelationMutate,
   RelationshipType,
 } from "node-appwrite";
-import client from "./setup.js";
+import client from "../setup.js";
 
 // Initialize the Databases service
 const databases = new Databases(client);
