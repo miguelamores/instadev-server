@@ -1,6 +1,7 @@
 import express from "express";
 import { initializeDatabase } from "./database.js";
 import dotenv from "dotenv";
+import { fetchAndSaveAccounts } from "./collections/accountService.js";
 
 // Load environment variables
 dotenv.config();
@@ -33,6 +34,25 @@ const databaseId = process.env.APPWRITE_DATABASE_ID;
 // Define a simple endpoint
 app.get("/", (req, res) => {
   res.send("InstaClone API Server");
+});
+
+// Endpoint to fetch and save accounts from Appwrite to our database
+app.get("/accounts/sync", async (req, res) => {
+  try {
+    const savedAccounts = await fetchAndSaveAccounts(databaseId);
+    res.json({
+      success: true,
+      message: `Successfully processed ${savedAccounts.length} accounts`,
+      data: savedAccounts,
+    });
+  } catch (error) {
+    console.error("Error syncing accounts:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to sync accounts",
+      error: error.message,
+    });
+  }
 });
 
 // Start the server
