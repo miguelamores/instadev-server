@@ -1,6 +1,7 @@
 import {
   Databases,
   ID,
+  IndexType,
   Query,
   RelationMutate,
   RelationshipType,
@@ -21,10 +22,6 @@ export async function createUsersCollection(databaseId) {
     const collections = await databases.listCollections(databaseId);
     const usersCollection = collections.collections.find(
       (collection) => collection.name === "users"
-    );
-
-    const postsCollection = collections.collections.find(
-      (collection) => collection.name === "posts"
     );
 
     if (usersCollection) {
@@ -117,34 +114,23 @@ export async function createUsersCollection(databaseId) {
     // Wait a bit for the attributes to be created
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    // Add relationship attribute (this will need a posts collection to be created separately)
-    // Adding after initial attribute creation to avoid potential race conditions
-    await databases.createRelationshipAttribute(
-      databaseId,
-      collection.$id,
-      postsCollection.$id, // the related collection ID or name where posts would be stored
-      RelationshipType.ManyToOne, // type of relationship - user can have many posts
-      true, // Two-way relationship
-      "creator",
-      "posts",
-      RelationMutate.SetNull // what happens when the related document is deleted
-    );
-
-    console.log("Created relationship attribute for users collection");
-
     // Create indexes for faster queries
     await Promise.all([
       // Index on email for quick lookups
-      databases.createIndex(databaseId, collection.$id, "email_index", "key", [
-        "email",
-      ]),
+      databases.createIndex(
+        databaseId,
+        collection.$id,
+        "email_index",
+        IndexType.Key,
+        ["email"]
+      ),
 
       // Index on username for quick lookups
       databases.createIndex(
         databaseId,
         collection.$id,
         "username_index",
-        "key",
+        IndexType.Key,
         ["username"]
       ),
 
@@ -153,7 +139,7 @@ export async function createUsersCollection(databaseId) {
         databaseId,
         collection.$id,
         "account_index",
-        "key",
+        IndexType.Key,
         ["accountId"]
       ),
     ]);
@@ -177,10 +163,6 @@ export async function createPostsCollection(databaseId) {
     const collections = await databases.listCollections(databaseId);
     const postsCollection = collections.collections.find(
       (collection) => collection.name === "posts"
-    );
-
-    const usersCollection = collections.collections.find(
-      (collection) => collection.name === "users"
     );
 
     if (postsCollection) {
@@ -255,26 +237,16 @@ export async function createPostsCollection(databaseId) {
     // Wait a bit for the attributes to be created
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    // Add relationship attribute (linking posts to users)
-    await databases.createRelationshipAttribute(
-      databaseId,
-      collection.$id,
-      usersCollection.$id, // the related collection ID or name where users are stored
-      RelationshipType.ManyToOne, // type of relationship - many posts can belong to one user
-      true, // Two-way relationship
-      "user",
-      "posts",
-      RelationMutate.SetNull // delete posts when user is deleted
-    );
-
-    console.log("Created relationship attribute for posts collection");
-
     // Create indexes for faster queries
     await Promise.all([
       // Index on tags for quick lookups
-      databases.createIndex(databaseId, collection.$id, "tags_index", "key", [
-        "tags",
-      ]),
+      databases.createIndex(
+        databaseId,
+        collection.$id,
+        "tags_index",
+        IndexType.Key,
+        ["tags"]
+      ),
     ]);
 
     console.log("Created all attributes and indexes for posts collection");
@@ -298,14 +270,6 @@ export async function createSavesCollection(databaseId) {
       (collection) => collection.name === "saves"
     );
 
-    const usersCollection = collections.collections.find(
-      (collection) => collection.name === "users"
-    );
-
-    const postsCollection = collections.collections.find(
-      (collection) => collection.name === "posts"
-    );
-
     if (savesCollection) {
       console.log("Saves collection already exists");
       return savesCollection;
@@ -327,45 +291,14 @@ export async function createSavesCollection(databaseId) {
     // Wait a bit for the collection to be created
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    // Add relationship attribute - link to users
-    await databases.createRelationshipAttribute(
-      databaseId,
-      collection.$id,
-      usersCollection.$id,
-      RelationshipType.ManyToOne, // Many saves can belong to one user
-      true, // Two-way relationship
-      "user",
-      "saves", // User's saved posts
-      RelationMutate.SetNull // Delete saves when user is deleted
-    );
-
-    console.log("Created user relationship attribute for saves collection");
-
-    // Wait a bit for the first relationship to be created
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // Add relationship attribute - link to posts
-    await databases.createRelationshipAttribute(
-      databaseId,
-      collection.$id,
-      postsCollection.$id,
-      RelationshipType.ManyToOne, // Many saves can reference one post
-      true, // Two-way relationship
-      "post",
-      "savedBy", // Users who saved this post
-      RelationMutate.SetNull // Delete saves when post is deleted
-    );
-
-    console.log("Created post relationship attribute for saves collection");
-
     // Create a composite index on user and post for faster lookups and uniqueness
-    await databases.createIndex(
-      databaseId,
-      collection.$id,
-      "user_post_index",
-      "key",
-      ["user", "post"]
-    );
+    // await databases.createIndex(
+    //   databaseId,
+    //   collection.$id,
+    //   "user_post_index",
+    //   IndexType.Key,
+    //   ["user", "post"]
+    // );
 
     console.log("Created index for saves collection");
     return collection;
@@ -386,14 +319,6 @@ export async function createLikesCollection(databaseId) {
     const collections = await databases.listCollections(databaseId);
     const likesCollection = collections.collections.find(
       (collection) => collection.name === "likes"
-    );
-
-    const usersCollection = collections.collections.find(
-      (collection) => collection.name === "users"
-    );
-
-    const postsCollection = collections.collections.find(
-      (collection) => collection.name === "posts"
     );
 
     if (likesCollection) {
@@ -417,45 +342,14 @@ export async function createLikesCollection(databaseId) {
     // Wait a bit for the collection to be created
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    // Add relationship attribute - link to users
-    await databases.createRelationshipAttribute(
-      databaseId,
-      collection.$id,
-      usersCollection.$id,
-      RelationshipType.ManyToOne, // Many likes can belong to one user
-      true, // Two-way relationship
-      "user",
-      "likes", // User's likes
-      RelationMutate.SetNull // Delete likes when user is deleted
-    );
-
-    console.log("Created user relationship attribute for likes collection");
-
-    // Wait a bit for the first relationship to be created
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // Add relationship attribute - link to posts
-    await databases.createRelationshipAttribute(
-      databaseId,
-      collection.$id,
-      postsCollection.$id,
-      RelationshipType.ManyToOne, // Many likes can reference one post
-      true, // Two-way relationship
-      "post",
-      "likedBy", // Users who liked this post
-      RelationMutate.SetNull // Delete likes when post is deleted
-    );
-
-    console.log("Created post relationship attribute for likes collection");
-
     // Create a composite index on user and post for faster lookups and uniqueness
-    await databases.createIndex(
-      databaseId,
-      collection.$id,
-      "user_post_index",
-      "key",
-      ["user", "post"]
-    );
+    // await databases.createIndex(
+    //   databaseId,
+    //   collection.$id,
+    //   "user_post_index",
+    //   IndexType.Key,
+    //   ["user", "post"]
+    // );
 
     console.log("Created index for likes collection");
     return collection;
@@ -466,16 +360,199 @@ export async function createLikesCollection(databaseId) {
 }
 
 /**
+ * Creates relationships between collections after all collections are created
+ * @param {string} databaseId - The database ID where the collections exist
+ */
+export async function createRelationships(databaseId) {
+  try {
+    console.log("Creating relationships between collections...");
+
+    // Get all collections
+    const collections = await databases.listCollections(databaseId);
+    const usersCollection = collections.collections.find(
+      (collection) => collection.name === "users"
+    );
+    const postsCollection = collections.collections.find(
+      (collection) => collection.name === "posts"
+    );
+    const savesCollection = collections.collections.find(
+      (collection) => collection.name === "saves"
+    );
+    const likesCollection = collections.collections.find(
+      (collection) => collection.name === "likes"
+    );
+
+    // Check if the necessary collections exist
+    if (!usersCollection || !postsCollection) {
+      console.log(
+        "Users or Posts collections don't exist yet. Skipping relationship creation."
+      );
+      return;
+    }
+
+    // Create relationship between users and posts collections
+    try {
+      // First check if relationship already exists to avoid errors
+      const userAttributes = await databases.listAttributes(
+        databaseId,
+        usersCollection.$id
+      );
+      const hasPostsRelationship = userAttributes.attributes.some(
+        (attr) => attr.key === "posts"
+      );
+
+      if (!hasPostsRelationship) {
+        await databases.createRelationshipAttribute(
+          databaseId,
+          usersCollection.$id,
+          postsCollection.$id,
+          RelationshipType.ManyToOne,
+          true, // Two-way relationship
+          "posts",
+          "creator",
+          RelationMutate.SetNull
+        );
+        console.log("Created relationship between users and posts collections");
+      } else {
+        console.log("Relationship between users and posts already exists");
+      }
+    } catch (error) {
+      console.error(
+        "Error creating relationship between users and posts:",
+        error
+      );
+    }
+
+    // Create relationships for saves collection if it exists
+    if (savesCollection) {
+      try {
+        const savesAttributes = await databases.listAttributes(
+          databaseId,
+          savesCollection.$id
+        );
+        const hasUserRelationship = savesAttributes.attributes.some(
+          (attr) => attr.key === "user"
+        );
+
+        if (!hasUserRelationship) {
+          await databases.createRelationshipAttribute(
+            databaseId,
+            savesCollection.$id,
+            usersCollection.$id,
+            RelationshipType.ManyToOne,
+            true,
+            "user",
+            "saves",
+            RelationMutate.SetNull
+          );
+          console.log(
+            "Created relationship between saves and users collections"
+          );
+        }
+
+        const hasPostRelationship = savesAttributes.attributes.some(
+          (attr) => attr.key === "post"
+        );
+
+        if (!hasPostRelationship) {
+          await databases.createRelationshipAttribute(
+            databaseId,
+            savesCollection.$id,
+            postsCollection.$id,
+            RelationshipType.ManyToOne,
+            true,
+            "post",
+            "savedBy",
+            RelationMutate.SetNull
+          );
+          console.log(
+            "Created relationship between saves and posts collections"
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Error creating relationships for saves collection:",
+          error
+        );
+      }
+    }
+
+    // Create relationships for likes collection if it exists
+    if (likesCollection) {
+      try {
+        const likesAttributes = await databases.listAttributes(
+          databaseId,
+          likesCollection.$id
+        );
+        const hasUserRelationship = likesAttributes.attributes.some(
+          (attr) => attr.key === "user"
+        );
+
+        if (!hasUserRelationship) {
+          await databases.createRelationshipAttribute(
+            databaseId,
+            likesCollection.$id,
+            usersCollection.$id,
+            RelationshipType.ManyToOne,
+            true,
+            "user",
+            "likes",
+            RelationMutate.SetNull
+          );
+          console.log(
+            "Created relationship between likes and users collections"
+          );
+        }
+
+        const hasPostRelationship = likesAttributes.attributes.some(
+          (attr) => attr.key === "post"
+        );
+
+        if (!hasPostRelationship) {
+          await databases.createRelationshipAttribute(
+            databaseId,
+            likesCollection.$id,
+            postsCollection.$id,
+            RelationshipType.ManyToOne,
+            true,
+            "post",
+            "likedBy",
+            RelationMutate.SetNull
+          );
+          console.log(
+            "Created relationship between likes and posts collections"
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Error creating relationships for likes collection:",
+          error
+        );
+      }
+    }
+
+    console.log("Finished creating relationships");
+  } catch (error) {
+    console.error("Error creating relationships:", error);
+  }
+}
+
+/**
  * Initialize the database by creating all necessary collections
  * @param {string} databaseId - The database ID to use
  */
 export async function initializeDatabase(databaseId) {
   try {
+    // First create all collections without relationships
     await createUsersCollection(databaseId);
     await createPostsCollection(databaseId);
     await createSavesCollection(databaseId);
     await createLikesCollection(databaseId);
-    console.log("Database initialized successfully");
+
+    // Then establish all relationships after collections are created
+    await createRelationships(databaseId);
+
+    console.log("Database initialized successfully with all relationships");
   } catch (error) {
     console.error("Failed to initialize database:", error);
     throw error;
