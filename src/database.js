@@ -404,12 +404,12 @@ export async function createRelationships(databaseId) {
       if (!hasPostsRelationship) {
         await databases.createRelationshipAttribute(
           databaseId,
-          usersCollection.$id,
           postsCollection.$id,
+          usersCollection.$id,
           RelationshipType.ManyToOne,
           true, // Two-way relationship
-          "posts",
           "creator",
+          "posts",
           RelationMutate.SetNull
         );
         console.log("Created relationship between users and posts collections");
